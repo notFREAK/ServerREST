@@ -1,123 +1,134 @@
 package org.example.Server;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import org.example.figure.Shape;
 import org.example.figure.Circle;
-import org.example.figure.Line;
 import org.example.figure.Rectangle;
+import org.example.figure.Line;
 
 import java.io.*;
+import java.lang.reflect.Type;
 import java.util.*;
 
-@SuppressWarnings("unchecked")
 public class ServerLogic {
-    private final List<Object> receivedObjects = Collections.synchronizedList(new ArrayList<>());
+    private final Map<Integer, Shape> storedShapes = new LinkedHashMap<>();
+    private int currentId = 0;
     private final Gson gson = new Gson();
-    private final String JSON_FILE = "objects_rest.json";
+    private final String JSON_FILE = "shapes.json";
     private final List<ServerListener> listeners = new ArrayList<>();
-    private boolean loaded = false;
 
     public interface ServerListener {
-        void onNewObjectReceived(Object obj);
+        void onShapeAdded(int id, Shape shape);
+        void onShapeDeleted(int id);
     }
 
-    public void addListener(ServerListener l) {
-        listeners.add(l);
+    public void addListener(ServerListener listener) {
+        listeners.add(listener);
     }
 
-    private void notifyNewObject(Object obj) {
-        for (ServerListener l: listeners) {
-            l.onNewObjectReceived(obj);
+    private void notifyShapeAdded(int id, Shape shape) {
+        for (ServerListener l : listeners) {
+            l.onShapeAdded(id, shape);
         }
     }
 
-    public synchronized void addObject(Object o){
-        receivedObjects.add(o);
-        saveObjectsToFile();
-        notifyNewObject(o);
-    }
-
-    public void loadObjectsFromFile(){
-        if (loaded) return;
-        loaded = true;
-        File f = new File(JSON_FILE);
-        if(!f.exists()) return;
-        try (Reader r = new FileReader(f)) {
-            List<Map<String,Object>> list = gson.fromJson(r, ArrayList.class);
-            if (list == null) return;
-            for (Map<String,Object> m : list) {
-                Object obj = mapToObject(m);
-                if (obj!=null) {
-                    receivedObjects.add(obj);
-                    notifyNewObject(obj);
-                }
-            }
-        } catch (IOException e){
-            e.printStackTrace();
+    private void notifyShapeDeleted(int id) {
+        for (ServerListener l : listeners) {
+            l.onShapeDeleted(id);
         }
     }
 
-    private void saveObjectsToFile(){
-        List<Map<String,Object>> list = new ArrayList<>();
-        for (Object o: receivedObjects) {
-            list.add(objectToMapWithType(o));
-        }
-        try(Writer w = new FileWriter(JSON_FILE)){
-            gson.toJson(list,w);
-        }catch(IOException e){
-            e.printStackTrace();
-        }
+    public synchronized int addShape(Shape shape) {
+        int id = currentId++;
+        storedShapes.put(id, shape);
+        saveShapesToFile();
+        notifyShapeAdded(id, shape);
+        return id;
     }
 
-    public List<Map<String, Object>> getAllObjectsAsMapsWithType() {
+    public synchronized boolean deleteShape(int id) {
+        if (storedShapes.containsKey(id)) {
+            storedShapes.remove(id);
+            saveShapesToFile();
+            notifyShapeDeleted(id);
+            return true;
+        }
+        return false;
+    }
+
+    public synchronized Shape getShape(int id) {
+        return storedShapes.get(id);
+    }
+
+    public synchronized List<Map<String, Object>> getAllShapes() {
         List<Map<String, Object>> list = new ArrayList<>();
-        synchronized (receivedObjects) {
-            for (Object o : receivedObjects) {
-                list.add(objectToMapWithType(o));
-            }
+        for (Map.Entry<Integer, Shape> entry : storedShapes.entrySet()) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("id", entry.getKey());
+            map.put("type", entry.getValue().getType());
+            map.put("data", entry.getValue());
+            list.add(map);
         }
         return list;
     }
 
-    private Map<String, Object> objectToMapWithType(Object o) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        String type;
-
-        if (o instanceof Circle) {
-            type = "Circle";
-        } else if (o instanceof Rectangle) {
-            type = "Rectangle";
-        } else if (o instanceof Line) {
-            type = "Line";
-        } else {
-            type = "Unknown";
+    private synchronized void saveShapesToFile() {
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Map.Entry<Integer, Shape> entry : storedShapes.entrySet()) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("id", entry.getKey());
+            map.put("type", entry.getValue().getType());
+            map.put("data", entry.getValue());
+            list.add(map);
         }
-
-        map.put("type", type);
-
-        Map<String, Object> dataMap = gson.fromJson(gson.toJson(o), Map.class);
-        map.put("data", dataMap);
-
-        return map;
+        try (Writer writer = new FileWriter(JSON_FILE)) {
+            gson.toJson(list, writer);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
-    private Object mapToObject(Map<String, Object> m) {
-        String type = (String) m.get("type");
-        if (type == null) return null;
-
-        Object data = m.get("data");
-        if (!(data instanceof Map)) return null;
-
-        String jsonData = gson.toJson(data);
-
-        switch (type) {
-            case "Circle":
-                return gson.fromJson(jsonData, Circle.class);
-            case "Rectangle":
-                return gson.fromJson(jsonData, Rectangle.class);
-            case "Line":
-                return gson.fromJson(jsonData, Line.class);
-            default:
-                return null;
+    private synchronized void loadShapesFromFile() {
+        File file = new File(JSON_FILE);
+        if (!file.exists()) return;
+        try (Reader reader = new FileReader(file)) {
+            Type listType = new TypeToken<List<Map<String, Object>>>(){}.getType();
+            List<Map<String, Object>> list = gson.fromJson(reader, listType);
+            if (list != null) {
+                for (Map<String, Object> map : list) {
+                    int id = ((Number) map.get("id")).intValue();
+                    String type = (String) map.get("type");
+                    Object dataObj = map.get("data");
+                    String jsonData = gson.toJson(dataObj);
+                    Shape shape = null;
+                    switch (type) {
+                        case "Circle":
+                            shape = gson.fromJson(jsonData, Circle.class);
+                            break;
+                        case "Rectangle":
+                            shape = gson.fromJson(jsonData, Rectangle.class);
+                            break;
+                        case "Line":
+                            shape = gson.fromJson(jsonData, Line.class);
+                            break;
+                        default:
+                            break;
+                    }
+                    if (shape != null) {
+                        storedShapes.put(id, shape);
+                        if (id >= currentId) {
+                            currentId = id + 1;
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+    }
+
+    public ServerLogic() {
+        loadShapesFromFile();
     }
 }
