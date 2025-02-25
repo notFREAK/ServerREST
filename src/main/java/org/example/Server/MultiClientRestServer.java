@@ -11,6 +11,7 @@ import org.example.common.ApiResponse;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.HashMap;
 import java.util.Map;
 
 public class MultiClientRestServer extends JFrame implements ServerLogic.ServerListener {
@@ -65,25 +66,22 @@ public class MultiClientRestServer extends JFrame implements ServerLogic.ServerL
                     res.status(400);
                     return gson.toJson(new ApiResponse<Void>(false, "Invalid request"));
                 }
-                Shape shape = null;
-                switch (request.getType()) {
-                    case "Circle":
-                        shape = gson.fromJson(gson.toJson(request.getData()), Circle.class);
-                        break;
-                    case "Rectangle":
-                        shape = gson.fromJson(gson.toJson(request.getData()), Rectangle.class);
-                        break;
-                    case "Line":
-                        shape = gson.fromJson(gson.toJson(request.getData()), Line.class);
-                        break;
-                    default:
-                        res.status(400);
-                        return gson.toJson(new ApiResponse<Void>(false, "Unknown shape type"));
+                Map<String, Class<? extends Shape>> shapeMap = new HashMap<>();
+                shapeMap.put("Circle", Circle.class);
+                shapeMap.put("Rectangle", Rectangle.class);
+                shapeMap.put("Line", Line.class);
+
+                Class<? extends Shape> clazz = shapeMap.get(request.getType());
+                if (clazz == null) {
+                    res.status(400);
+                    return gson.toJson(new ApiResponse<Void>(false, "Unknown shape type"));
                 }
+                Shape shape = gson.fromJson(gson.toJson(request.getData()), clazz);
                 int id = logic.addShape(shape);
                 res.status(201);
                 return gson.toJson(new ApiResponse<Void>(true, "OK: Received " + request.getType() + " with id " + id));
             });
+
 
             get("/shapes", (req, res) -> {
                 res.type("application/json");
