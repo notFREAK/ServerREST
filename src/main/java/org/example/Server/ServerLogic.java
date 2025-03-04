@@ -2,6 +2,7 @@ package org.example.Server;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import org.example.factory.ShapeFactory;
 import org.example.figure.Shape;
 import org.example.figure.Circle;
 import org.example.figure.Rectangle;
@@ -101,21 +102,9 @@ public class ServerLogic {
                     String type = (String) map.get("type");
                     Object dataObj = map.get("data");
                     String jsonData = gson.toJson(dataObj);
-                    Shape shape = null;
-                    switch (type) {
-                        case "Circle":
-                            shape = gson.fromJson(jsonData, Circle.class);
-                            break;
-                        case "Rectangle":
-                            shape = gson.fromJson(jsonData, Rectangle.class);
-                            break;
-                        case "Line":
-                            shape = gson.fromJson(jsonData, Line.class);
-                            break;
-                        default:
-                            break;
-                    }
-                    if (shape != null) {
+                    Class<? extends Shape> clazz = ShapeFactory.getShapeClass(type);
+                    if (clazz != null) {
+                        Shape shape = gson.fromJson(jsonData, clazz);
                         storedShapes.put(id, shape);
                         if (id >= currentId) {
                             currentId = id + 1;

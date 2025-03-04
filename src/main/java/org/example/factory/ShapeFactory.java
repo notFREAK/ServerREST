@@ -5,9 +5,18 @@ import org.example.figure.Line;
 import org.example.figure.Rectangle;
 import org.example.figure.Shape;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class ShapeFactory {
+    private static final Map<String, Class<? extends Shape>> shapeClasses = new HashMap<>();
+
+    static {
+        shapeClasses.put("Circle", Circle.class);
+        shapeClasses.put("Rectangle", Rectangle.class);
+        shapeClasses.put("Line", Line.class);
+    }
+
     public static Shape createShape(String type, Map<String, Integer> params) {
         switch (type) {
             case "Circle":
@@ -19,5 +28,9 @@ public class ShapeFactory {
             default:
                 throw new IllegalArgumentException("Неизвестный тип фигуры: " + type);
         }
+    }
+
+    public static Class<? extends Shape> getShapeClass(String type) {
+        return shapeClasses.get(type);
     }
 }
