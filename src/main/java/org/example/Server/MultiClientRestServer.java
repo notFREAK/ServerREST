@@ -79,7 +79,8 @@ public class MultiClientRestServer extends JFrame implements ServerLogic.ServerL
                 Shape shape = gson.fromJson(gson.toJson(request.getData()), clazz);
                 int id = logic.addShape(shape);
                 res.status(201);
-                return gson.toJson(new ApiResponse<Void>(true, "OK: Received " + request.getType() + " with id " + id));
+                return gson.toJson(new ApiResponse<Void>(true, "OK: Received " + request.getType()
+                        + " with id " + id));
             });
 
 

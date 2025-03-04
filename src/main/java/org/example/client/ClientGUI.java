@@ -209,9 +209,11 @@ public class ClientGUI extends JFrame {
                         for (Map<String, Object> map : apiResp.getData()) {
                             sb.append("ID=").append(map.get("id")).append(": ").append(map.get("type")).append("\n");
                         }
-                        JOptionPane.showMessageDialog(ClientGUI.this, sb.toString(), "Список фигур", JOptionPane.INFORMATION_MESSAGE);
+                        JOptionPane.showMessageDialog(ClientGUI.this, sb.toString(), "Список фигур",
+                                JOptionPane.INFORMATION_MESSAGE);
                     } else {
-                        JOptionPane.showMessageDialog(ClientGUI.this, "Нет фигур", "Список фигур", JOptionPane.INFORMATION_MESSAGE);
+                        JOptionPane.showMessageDialog(ClientGUI.this, "Нет фигур", "Список фигур",
+                                JOptionPane.INFORMATION_MESSAGE);
                     }
                 });
             } catch (Exception ex) {
